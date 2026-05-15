@@ -1,5 +1,6 @@
 <!--
   README.md — final report for CMP4501 Semester Project
+  Edit the highlighted TODO lines before submission.
 -->
 
 <div align="center">
@@ -8,7 +9,7 @@
 
 ### CMP4501 – Applied Reinforcement Learning · Semester Project
 
-**Student:** Secem Uğus &nbsp;·&nbsp;
+**Student:** *TODO — your full name* &nbsp;·&nbsp;
 **Track:** Option A — *Autonomous Driving with Highway-Env* &nbsp;·&nbsp;
 **Algorithm:** Proximal Policy Optimization (PPO)
 
@@ -37,13 +38,14 @@ The three required stages — *untrained*, *half-trained*, *fully trained* — a
    - [Reward Function](#a-reward-function)
    - [Model](#b-model)
    - [States and Actions](#c-states-and-actions)
-3. [Training Analysis](#-training-analysis)
+3. [Experiment Iterations](#-experiment-iterations)
+4. [Training Analysis](#-training-analysis)
    - [Reward Graph](#a-reward-graph)
    - [Quantitative Evaluation](#b-quantitative-evaluation)
    - [Commentary](#c-commentary)
-4. [Challenges and Failures](#-challenges-and-failures)
-5. [How to Reproduce](#-how-to-reproduce)
-6. [Repository Structure](#-repository-structure)
+5. [Challenges and Failures](#-challenges-and-failures)
+6. [How to Reproduce](#-how-to-reproduce)
+7. [Repository Structure](#-repository-structure)
 
 ---
 
@@ -162,6 +164,25 @@ Positions and velocities are expressed **relative to the ego vehicle** (`absolut
 | 4 | `SLOWER`     | Decelerate by one speed band. |
 
 The agent selects one meta-action every `1 / policy_frequency = 0.2` seconds, while the underlying simulator integrates physics at `15 Hz`.
+
+---
+
+## 🔬 Experiment Iterations
+
+The final configuration shown above is the result of comparing several variants. Each row below records a deliberate change that was tested against the baseline, the observed effect, and the final decision. Rejected variants are kept in this table on purpose — they are the evidence behind the chosen hyperparameters.
+
+| # | Variant | Change vs. baseline | Observed effect | Decision |
+| :-: | :------ | :------------------ | :-------------- | :------- |
+| v1 | Reward shaping (early) | $\gamma_\text{lane-change} = 0.3$ (heavy penalty) | Agent refused to overtake at all; sat behind slow vehicles indefinitely | ❌ Rejected |
+| **v2** | Reward shaping (final) | $\gamma_\text{lane-change} = 0.05$ | Healthy overtaking, suppressed jitter | ✅ **Adopted** |
+| v3 | Discount factor | $\gamma_\text{discount} = 0.99$ (PPO default) | Value function over-credited far-past actions; collision-avoidance signal slow to develop | ❌ Rejected |
+| **v4** | Discount factor (final) | $\gamma_\text{discount} = 0.95$ | Shorter horizon matched ~200-step episodes; faster convergence | ✅ **Adopted** |
+| v5 | Exploration | Entropy coef $= 0.005$ | Policy collapsed to "always SLOWER" — safe but trivial local minimum | ❌ Rejected |
+| **v6** | Exploration (final) | Entropy coef $= 0.01$ | Maintained exploration of overtaking maneuvers | ✅ **Adopted** |
+| v7 | Network architecture | Vanilla flattened MLP $(25 \to 256 \to 256)$ | Agent's decision changed when the order of neighboring vehicles in the observation matrix changed — broke symmetry | ❌ Rejected |
+| **v8** | Network architecture (final) | Per-vehicle MLP + mean pooling (`VehicleAttentionExtractor`) | Permutation-invariant features; more stable training across seeds | ✅ **Adopted** |
+
+The final model (`ppo_full.zip`) corresponds to the combination of v2 + v4 + v6 + v8. Variants v1, v3, v5, and v7 each shipped a partially trained agent that justified moving on; full-length training was only invested in the adopted configurations.
 
 ---
 
