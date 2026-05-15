@@ -1,6 +1,5 @@
 <!--
   README.md — final report for CMP4501 Semester Project
-  Edit the highlighted TODO lines before submission.
 -->
 
 <div align="center">
@@ -9,7 +8,7 @@
 
 ### CMP4501 – Applied Reinforcement Learning · Semester Project
 
-**Student:** *TODO — your full name* &nbsp;·&nbsp;
+**Student:** Secem Uğus &nbsp;·&nbsp;
 **Track:** Option A — *Autonomous Driving with Highway-Env* &nbsp;·&nbsp;
 **Algorithm:** Proximal Policy Optimization (PPO)
 
