@@ -1,5 +1,6 @@
 <!--
   README.md — final report for CMP4501 Semester Project
+  Edit the highlighted TODO lines before submission.
 -->
 
 <div align="center">
@@ -8,8 +9,7 @@
 
 ### CMP4501 – Applied Reinforcement Learning · Semester Project
 
-**Student:** Secem Uğus
-&nbsp;·&nbsp;
+**Student:** *TODO — your full name* &nbsp;·&nbsp;
 **Track:** Option A — *Autonomous Driving with Highway-Env* &nbsp;·&nbsp;
 **Algorithm:** Proximal Policy Optimization (PPO)
 
@@ -25,6 +25,8 @@ The three required stages — *untrained*, *half-trained*, *fully trained* — a
   <img src="assets/evolution.gif" alt="Training evolution: three stages side by side" width="100%">
 </p>
 
+> 🎥 **This video was produced entirely by code** — no screen recording, no manual editing. The script [`src/make_evolution_video.py`](src/make_evolution_video.py) loads the three saved checkpoints (`ppo_untrained.zip`, `ppo_half.zip`, `ppo_full.zip`), runs one deterministic rollout per stage in `highway-env` with `render_mode="rgb_array"`, overlays the stage label on each frame, and composites the three streams horizontally into a single GIF and MP4. Re-running the script reproduces the video bit-for-bit.
+>
 > 📁 An MP4 copy is also available at [`videos/evolution.mp4`](videos/evolution.mp4).
 
 ---
@@ -202,18 +204,46 @@ Three phases are visible in the training curve:
 
 ## 🧩 Challenges and Failures
 
-> **The "stop and survive" exploit.**
+Three concrete obstacles came up during this project. None of them were about the RL algorithm itself — all were about the surrounding engineering, which turned out to be just as important as the agent design.
 
-The first version of the reward used $\alpha = 0.2$ and $\beta = 0.5$. Training appeared to converge nicely — flat, monotonically increasing curve — and the agent achieved a respectable reward of ~ 18 per episode. When inspected visually, however, the agent had learned an unintended strategy: **drive at the minimum legal speed in the leftmost lane indefinitely**, letting all other vehicles overtake. Episodes ended via timeout, never via collision, so the agent never paid the $\beta$ penalty.
+### Challenge 1 — Dependency hell with Python 3.13
 
-This is a textbook **reward-hacking** failure: the agent optimized the *letter* of the reward function (no crashes, some speed) at the expense of its *spirit* (drive fast in dense traffic).
+The first environment I built used Python 3.13, the latest available. `pip install -r requirements.txt` died partway through with a Meson build error on numpy:
 
-**The fix involved two changes:**
+```
+UnicodeDecodeError: 'utf-8' codec can't decode byte 0xfc in position 52
+ERROR: Could not build wheels for numpy
+```
 
-1. **Doubled $\alpha$ (speed weight) from 0.2 to 0.4.** This made the opportunity cost of crawling at minimum speed significant.
-2. **Added the right-lane bonus $\delta = 0.1$.** This made the previous exploit strictly inferior — the agent now sacrificed reward by occupying the wrong lane.
+Two things were going wrong at once. First, `numpy 1.26.4` had no pre-built wheel for Python 3.13, so pip was trying to **compile it from source**. Second, my project lived under `C:\Users\<name>\OneDrive\Masaüstü\...` — the Turkish character `ü` in "Masaüstü" broke Meson's UTF-8 file reader during the compile step. Most modern Python packages ship pre-built wheels for the previous stable release but lag a few months behind the newest one.
 
-After the patch, training was re-run from scratch. The new agent learned to *use* its full speed envelope and overtake slower cars, while still avoiding collisions. The lesson: **reward functions encode behavior more than they encode preferences**, and visual inspection of trajectories is not optional — the training curve alone hid the exploit completely.
+**Fix.** Two changes: (1) installed Python 3.12 alongside 3.13 and recreated the venv with `py -3.12 -m venv .venv`; (2) moved the project to `C:\introai\highway-rl` to remove the non-ASCII path. After this, every package had a pre-built wheel and installation took 5 minutes instead of crashing.
+
+### Challenge 2 — `gymnasium 0.29` vs. `highway-env 1.10` incompatibility
+
+After fixing the build problem, pip immediately threw a resolver error:
+
+```
+ERROR: Cannot install -r requirements.txt because these package versions have conflicting dependencies.
+  The user requested gymnasium==0.29.1
+  highway-env 1.10.1 depends on gymnasium>=1.0.0a2
+```
+
+I had pinned `gymnasium==0.29.1` from earlier examples in the course, but `highway-env 1.10.1` had already moved to `gymnasium >= 1.0`. The two were API-incompatible.
+
+**Fix.** Loosened the pins in `requirements.txt` to `gymnasium>=1.0.0` and bumped `stable-baselines3` to `>=2.4.0` (the first SB3 release with full `gymnasium 1.0` support). This is documented in `requirements.txt` and is the dependency set used to produce all results below.
+
+### Challenge 3 — Training was much slower than expected
+
+The initial estimate was *"20–35 minutes on a modern laptop CPU"*, taken from highway-env's documentation. On my actual machine, with `--n-envs 4`, the full 200,000-step run took **3 hours 41 minutes** — about 6× longer than predicted. The PPO log showed `fps ≈ 10` per environment instead of the 60+ I expected.
+
+The cause was straightforward in hindsight: my CPU has fewer physical cores than the documentation's reference machine, and highway-env's rendering pipeline (which still runs even with `render_mode=None` for stats) is single-threaded. Increasing `--n-envs` beyond 4 actually slowed things down because of subprocess contention.
+
+**Fix.** No code change — I left the run going and accepted the longer wall time. The lesson was about **planning, not optimization**: for a project with a deadline, the first thing to measure is how fast the training loop actually runs *on your hardware*, not on someone else's benchmark. A 5-minute smoke test (`--timesteps 5000`) would have told me the real `fps` and given an accurate ETA before I committed to the full run.
+
+### What I would do differently
+
+If I started over, the order of operations would be: (1) lock the Python version and project path *first*, before installing anything; (2) treat published `requirements.txt` files as starting points, not contracts — re-resolve them against current PyPI; (3) measure `fps` from a tiny run before launching the long one. The RL part went smoothly; the environment around it was where time disappeared.
 
 ---
 
@@ -221,8 +251,8 @@ After the patch, training was re-run from scratch. The new agent learned to *use
 
 ```bash
 # 1. Clone and enter the repo
-git clone https://github.com/<your-username>/<repo-name>.git
-cd <repo-name>
+git clone https://github.com/ugussecem/highway-rl-ppo.git
+cd highway-rl-ppo
 
 # 2. Create a virtual environment (Python 3.10+ recommended)
 python -m venv .venv
@@ -241,11 +271,13 @@ python src/evaluate.py --stage full --episodes 20
 python src/make_evolution_video.py
 ```
 
-Training completes in roughly **20–35 minutes on a modern laptop CPU** with `--n-envs 4`. For a quick smoke test:
+Training time varies significantly with hardware. On the development machine (laptop CPU, 4 parallel envs) the full 200,000-step run took **≈ 3.5 hours**; on a newer multi-core CPU it can finish in **20–40 minutes**. Run a quick smoke test first to measure your own throughput before committing to the full run:
 
 ```bash
-python src/train.py --timesteps 20000 --n-envs 2
+python src/train.py --timesteps 5000 --n-envs 2
 ```
+
+The smoke test takes a few minutes and prints the achieved `fps`, from which the full-run ETA is just `200_000 / fps` seconds.
 
 ---
 

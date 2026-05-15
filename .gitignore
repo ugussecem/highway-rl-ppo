@@ -18,7 +18,6 @@ Thumbs.db
 # Project artifacts that should NOT live in the repo
 logs/
 checkpoints/*.zip
-videos/*.mp4
 
 # But keep the placeholder files / dirs
 !logs/.gitkeep
