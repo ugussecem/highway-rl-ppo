@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+env/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+
+# Project artifacts that should NOT live in the repo
+logs/
+checkpoints/*.zip
+videos/*.mp4
+
+# But keep the placeholder files / dirs
+!logs/.gitkeep
+!checkpoints/.gitkeep
+!videos/.gitkeep
+
+# TensorBoard
+events.out.tfevents.*
+
+# Jupyter
+.ipynb_checkpoints/
