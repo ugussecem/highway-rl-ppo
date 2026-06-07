@@ -182,18 +182,15 @@ Three phases are visible in the training curve:
 
 ##  Challenges and Failures
 
-> **The "stop and survive" exploit.**
+Most of the real difficulty in this project was not the reinforcement learning itself but getting a **reproducible environment** running on a Windows laptop. Each of the following cost real time and is documented here so the setup can be repeated cleanly.
 
-The first version of the reward used $\alpha = 0.2$ and $\beta = 0.5$. Training appeared to converge nicely — flat, monotonically increasing curve — and the agent achieved a respectable reward of ~ 18 per episode. When inspected visually, however, the agent had learned an unintended strategy: **drive at the minimum legal speed in the leftmost lane indefinitely**, letting all other vehicles overtake. Episodes ended via timeout, never via collision, so the agent never paid the $\beta$ penalty.
+**1. Dependency version conflict (gymnasium vs. highway-env).** The first `requirements.txt` pinned `gymnasium==0.29.1`, but `highway-env==1.10.1` depends on `gymnasium>=1.0.0`, and `stable-baselines3` had to be recent enough (`>=2.4.0`) to support the gymnasium 1.0 API. Pip refused to install at all, failing with a `ResolutionImpossible` error before a single package was downloaded. The fix was to loosen the pins to mutually compatible ranges and let the resolver settle on a consistent set (gymnasium 1.2.x, stable-baselines3 2.8.x).
 
-This is a textbook **reward-hacking** failure: the agent optimized the *letter* of the reward function (no crashes, some speed) at the expense of its *spirit* (drive fast in dense traffic).
+**2. A fragile Python 3.13 setup.** The original virtual environment lived inside a OneDrive-synced folder on a path containing non-ASCII characters. This produced two separate failures: a corrupted `pip` (a missing vendored module), and `numpy` attempting to build from source because the `<2.0` cap excluded the available prebuilt wheels for Python 3.13. The fix was to rebuild a clean virtual environment **outside** the synced folder on a plain ASCII path, and to drop the upper `numpy` cap so pip could install prebuilt wheels directly.
 
-**The fix involved two changes:**
+**3. Missing progress-bar dependency.** `train.py` calls `model.learn(..., progress_bar=True)`, which silently requires `rich` in addition to `tqdm`. Training created the environments and saved the untrained checkpoint, then crashed at the start of the learning loop with an `ImportError` until `rich` was added to `requirements.txt`.
 
-1. **Doubled $\alpha$ (speed weight) from 0.2 to 0.4.** This made the opportunity cost of crawling at minimum speed significant.
-2. **Added the right-lane bonus $\delta = 0.1$.** This made the previous exploit strictly inferior — the agent now sacrificed reward by occupying the wrong lane.
-
-After the patch, training was re-run from scratch. The new agent learned to *use* its full speed envelope and overtake slower cars, while still avoiding collisions. The lesson: **reward functions encode behavior more than they encode preferences**, and visual inspection of trajectories is not optional — the training curve alone hid the exploit completely.
+**Lesson.** On a constrained laptop setup, *most of the failure surface is in the toolchain, not the algorithm*. Loosening over-eager version pins, testing the install in a fresh virtual environment on a clean path, and listing every runtime dependency explicitly (including transitive ones like `rich`) were what ultimately made the project reproducible end-to-end.
 
 ---
 
