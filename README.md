@@ -78,7 +78,7 @@ With the chosen coefficients:
 | $\gamma$ (lane change) | **0.05** | Mild — penalizes *gratuitous* lane changes without forbidding overtakes. |
 | $\delta$ (right-lane bonus) | **0.1** | Subtle nudge toward realistic highway etiquette. |
 
-**Why this shape?** Highway-env's built-in reward already encodes speed and collisions, but exposing each term explicitly via a wrapper (see [`src/utils.py`](src/utils.py) → `ShapedRewardWrapper`) makes the trade-off legible and tunable. Early experiments with $\gamma = 0.3$ produced an agent that refused to overtake at all; lowering it to $0.05$ restored healthy lane-change behavior while still suppressing jitter.
+**Why this shape?** Highway-env's built-in reward already encodes speed and collisions, but exposing each term explicitly via a wrapper (see [`src/utils.py`](src/utils.py) → `ShapedRewardWrapper`) makes the trade-off legible and tunable. The lane-change weight $\gamma$ is deliberately kept small ($0.05$): a much larger penalty would risk an agent that refuses to overtake at all, whereas a small one discourages gratuitous lane-change jitter while still permitting genuine overtakes.
 
 ---
 
@@ -168,15 +168,15 @@ Episode reward and episode length over the full ~200k-step training run:
 
 ### b. Commentary
 
-Three phases are visible in the training curve:
+The training curves tell a **two-phase story** rather than a smooth, monotonic climb:
 
-1. **Random phase (≈ 0 – 10k steps).** Episode rewards hover around zero, episodes terminate quickly (≤ 30 steps), and the agent crashes frequently. The policy is essentially uniform over the 5 meta-actions.
+1. **Extended exploration phase (roughly the first half of training).** For the first ~1,500 episodes the smoothed episode reward stays low and nearly flat (around 10–15), and mean episode length actually *dips* early on (to ~30–35 steps) as the agent crashes frequently while exploring. Progress here is slow and easy to mistake for a stall — the policy is still close to uniform over the five meta-actions, and the `ppo_half.zip` checkpoint, saved inside this region, drives only partially competently.
 
-2. **Bootstrap phase (≈ 10k – 60k steps).** Rewards climb steeply as the agent discovers two basic facts: (a) the `SLOWER` action reduces collision rate, and (b) staying in lane (`IDLE`) is on average more rewarding than random lane changes. This is where the bulk of the improvement happens. The `ppo_half.zip` checkpoint sits inside this phase and shows partially competent — but still error-prone — driving.
+2. **Breakthrough and steady improvement (second half).** Past roughly the midpoint, both curves turn upward *together*: smoothed reward rises from ~15 to ~55, and mean episode length climbs from ~35 to ~125 steps. The fact that they rise together is the key signal — the agent is surviving longer (fewer early crashes) **and** earning more reward per episode, i.e. it is learning to drive fast without crashing rather than merely stalling to avoid the collision penalty.
 
-3. **Refinement phase (≈ 60k – 200k steps).** The curve flattens but does *not* plateau; subtler trade-offs are still being optimized (e.g., when to overtake a slow truck rather than tailgate). Episode length also stabilizes near the 200-step cap, indicating that most episodes now end via timeout rather than collision.
+A notable observation: **the reward curve is still rising at the end of training and has not plateaued.** The raw episodes increasingly reach the 200-step timeout cap (the dense band at the top of the right-hand plot), which shows that more and more episodes now end by timeout rather than by collision — but the upward slope of the rolling mean suggests that additional training budget would likely have yielded further gains.
 
-**On the hyperparameter choices.** Setting $\gamma_\text{discount} = 0.95$ rather than the more common $0.99$ noticeably accelerated learning: with $0.99$ the value function over-credits actions taken many seconds before an eventual crash, which slowed the collision-avoidance signal. The shorter horizon matches the actual episode length far better. Conversely, lowering the entropy coefficient below `0.01` caused the agent to collapse onto an "always SLOWER" policy that achieved a low but safe reward — a classic local minimum that better exploration avoids.
+**On the hyperparameter choices.** The discount factor was deliberately set to $\gamma_\text{discount} = 0.95$ rather than the more common $0.99$: an episode here is only ~200 steps, so a shorter effective horizon matches the task better and keeps the collision-avoidance signal from being diluted across actions taken many steps before an eventual crash. The entropy coefficient of `0.01` was chosen to maintain exploration of overtaking maneuvers; too little exploration risks the agent collapsing onto an over-cautious "always `SLOWER`" policy that is safe but slow — a local optimum the shaped speed reward is specifically designed to discourage.
 
 ---
 
