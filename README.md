@@ -57,7 +57,7 @@ The agent is trained with **Proximal Policy Optimization (PPO)** from [`stable-b
 The reward at timestep $t$ is a weighted combination of four interpretable terms:
 
 $$
-R_t \;=\; \alpha \cdot s_t \;-\; \beta \cdot c_t \;-\; \gamma \cdot \ell_t \;+\; \delta \cdot r_t
+R_t = \alpha \cdot s_t - \beta \cdot c_t - \gamma \cdot \ell_t + \delta \cdot r_t
 $$
 
 Where:
@@ -65,8 +65,8 @@ Where:
 | Symbol | Term | Meaning |
 | :----: | :--- | :------ |
 | $s_t \in [0, 1]$ | **Normalized speed** | High when the ego vehicle drives in the configured target range $[20, 30]$ m/s. |
-| $c_t \in \{0, 1\}$ | **Collision flag** | $1$ if the ego car crashed at step $t$, otherwise $0$. |
-| $\ell_t \in \{0, 1\}$ | **Lane-change cost** | $1$ whenever the agent picks a lane-change action (`LANE_LEFT` or `LANE_RIGHT`). |
+| $c_t \in \lbrace 0, 1 \rbrace$ | **Collision flag** | $1$ if the ego car crashed at step $t$, otherwise $0$. |
+| $\ell_t \in \lbrace 0, 1 \rbrace$ | **Lane-change cost** | $1$ whenever the agent picks a lane-change action (`LANE_LEFT` or `LANE_RIGHT`). |
 | $r_t \in [0, 1]$ | **Right-lane bonus** | Highest when the ego vehicle occupies the rightmost lane (driving discipline). |
 
 With the chosen coefficients:
